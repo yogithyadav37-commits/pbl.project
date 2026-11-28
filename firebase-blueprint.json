@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated college student or staff profile with PII isolated to owner and admins.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "studentId": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "department": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "role": { "type": "string", "enum": ["student", "faculty", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName", "email", "studentId", "department", "role", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Trusted campus administrator lookup document.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "grantedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "grantedAt"]
+    },
+    "CampusItem": {
+      "title": "CampusItem",
+      "description": "Publicly searchable lost or found item report without private verification clues.",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["lost", "found"] },
+        "itemName": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "category": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "description": { "type": "string", "minLength": 10, "maxLength": 1200 },
+        "location": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "campusZone": { "type": "string", "enum": ["main-library", "science-hall", "student-union", "engineering-lab", "athletics-complex", "commons-quad"] },
+        "dateOccurred": { "type": "string", "minLength": 8, "maxLength": 20, "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        "approxTime": { "type": "string", "maxLength": 40 },
+        "status": { "type": "string", "enum": ["open", "matched", "claimed", "returned", "archived"] },
+        "hasPhoto": { "type": "boolean" },
+        "photoUrl": { "type": "string", "maxLength": 500 },
+        "visualSignature": { "type": "string", "maxLength": 256 },
+        "reporterId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "reporterName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "itemName", "category", "description", "location", "campusZone", "dateOccurred", "status", "hasPhoto", "reporterId", "reporterName", "createdAt", "updatedAt"]
+    },
+    "ItemPrivateDetail": {
+      "title": "ItemPrivateDetail",
+      "description": "Restricted identifying characteristics stored separately so valuable item verification clues remain private.",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "reporterId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "identifyingCharacteristics": { "type": "string", "minLength": 1, "maxLength": 800 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "reporterId", "identifyingCharacteristics", "createdAt"]
+    },
+    "OwnershipClaim": {
+      "title": "OwnershipClaim",
+      "description": "Private ownership claim and verification response reviewed by campus administrators.",
+      "type": "object",
+      "properties": {
+        "itemId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "matchedItemId": { "type": "string", "maxLength": 128 },
+        "itemName": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "claimantId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "claimantName": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "claimantEmail": { "type": "string", "format": "email", "maxLength": 160 },
+        "verificationAnswer": { "type": "string", "minLength": 5, "maxLength": 800 },
+        "uniqueMarks": { "type": "string", "maxLength": 500 },
+        "matchScore": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected", "handed_over"] },
+        "adminNotes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["itemId", "itemName", "claimantId", "claimantName", "claimantEmail", "verificationAnswer", "status", "createdAt", "updatedAt"]
+    },
+    "UserNotification": {
+      "title": "UserNotification",
+      "description": "Match, claim submission, approval, and handover alerts scoped to a single user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "message": { "type": "string", "minLength": 2, "maxLength": 500 },
+        "kind": { "type": "string", "enum": ["match", "claim", "approval", "returned"] },
+        "relatedItemId": { "type": "string", "maxLength": 128 },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "kind", "read", "createdAt"]
+    },
+    "ItemCategory": {
+      "title": "ItemCategory",
+      "description": "Campus lost and found item category managed by administrators.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 2, "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 200 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "active", "createdAt"]
+    },
+    "MatchingConfig": {
+      "title": "MatchingConfig",
+      "description": "Administrator-configurable weights and thresholds for the text matching engine.",
+      "type": "object",
+      "properties": {
+        "descriptionWeight": { "type": "number" },
+        "nameWeight": { "type": "number" },
+        "categoryWeight": { "type": "number" },
+        "locationWeight": { "type": "number" },
+        "dateWeight": { "type": "number" },
+        "highThreshold": { "type": "number" },
+        "possibleThreshold": { "type": "number" },
+        "updatedBy": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["descriptionWeight", "nameWeight", "categoryWeight", "locationWeight", "dateWeight", "highThreshold", "possibleThreshold", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private student and faculty profiles restricted to owner and admins."
+    },
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Administrator membership records."
+    },
+    "/items/{itemId}": {
+      "schema": { "$ref": "#/entities/CampusItem" },
+      "description": "Publicly searchable campus lost and found item reports."
+    },
+    "/items/{itemId}/privateDetails/{detailId}": {
+      "schema": { "$ref": "#/entities/ItemPrivateDetail" },
+      "description": "Private identifying characteristics isolated from public item reads."
+    },
+    "/claims/{claimId}": {
+      "schema": { "$ref": "#/entities/OwnershipClaim" },
+      "description": "Private ownership claims reviewed by administrators."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/UserNotification" },
+      "description": "User-scoped notifications for matches, claims, approvals, and returns."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/ItemCategory" },
+      "description": "Admin-managed campus item categories."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/MatchingConfig" },
+      "description": "Admin-managed matching engine configuration."
+    }
+  }
+}

@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-cobalt-950: #0b1437;
+  --color-cobalt-900: #132257;
+  --color-cobalt-600: #1a4bff;
+  --color-cobalt-700: #143cd6;
+  --color-coral-500: #ff4d2e;
+  --color-coral-600: #e6391c;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #f3f6fc;
+    color: #0b1437;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: #1a4bff;
+    color: #ffffff;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+  }
+}
+
+.bg-campus-canvas {
+  background-color: #f3f6fc;
+  background-image:
+    radial-gradient(rgba(26, 75, 255, 0.065) 1px, transparent 1px),
+    radial-gradient(circle at 12% 0%, rgba(26, 75, 255, 0.09), transparent 36%),
+    radial-gradient(circle at 88% 8%, rgba(255, 77, 46, 0.075), transparent 34%);
+  background-size: 24px 24px, 100% 100%, 100% 100%;
+  background-attachment: fixed;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Official Google Sign-In Material Button styling */
+.gsi-material-button {
+  user-select: none;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #1e293b;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  height: 40px;
+  letter-spacing: 0.01em;
+  outline: none;
+  overflow: hidden;
+  padding: 0 14px;
+  position: relative;
+  text-align: center;
+  transition: background-color 150ms cubic-bezier(0.16, 1, 0.3, 1), border-color 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.gsi-material-button:hover {
+  background-color: #f8fafc;
+  border-color: #94a3b8;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.gsi-material-button:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.gsi-material-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.gsi-material-button-content-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.gsi-material-button-icon {
+  height: 18px;
+  width: 18px;
+  min-width: 18px;
+}

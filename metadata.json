@@ -1,0 +1,8 @@
+{
+  "name": "ReClaim – Intelligent Campus Lost & Found",
+  "description": "Centralized college campus lost and found management system with text-based TF-IDF/Jaccard matching, optional visual similarity, interactive 3D campus map, Firebase persistence, and Google Sheets & Gmail integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

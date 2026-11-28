@@ -1,0 +1,355 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Zero-lookup admin check safe for list queries (avoids exists() in allow list)
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'yogithyadav37@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidDateString(val) {
+      return val is string && val.size() >= 8 && val.size() <= 20 && val.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // 3. Entity Validation Blueprints (Anti-Update-Gap)
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'studentId', 'department', 'role', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'studentId', 'department', 'role', 'createdAt', 'updatedAt'])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.studentId is string && data.studentId.size() >= 2 && data.studentId.size() <= 32 && data.studentId.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.department is string && data.department.size() >= 2 && data.department.size() <= 80
+        && data.role in ['student', 'faculty', 'admin']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'grantedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'grantedAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 160
+        && data.grantedAt is timestamp;
+    }
+
+    function isValidCampusItem(data) {
+      return data.keys().hasAll([
+          'type', 'itemName', 'category', 'description', 'location', 'campusZone',
+          'dateOccurred', 'status', 'hasPhoto', 'reporterId', 'reporterName', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'type', 'itemName', 'category', 'description', 'location', 'campusZone',
+          'dateOccurred', 'approxTime', 'status', 'hasPhoto', 'photoUrl', 'visualSignature',
+          'reporterId', 'reporterName', 'createdAt', 'updatedAt'
+        ])
+        && data.type in ['lost', 'found']
+        && data.itemName is string && data.itemName.size() >= 2 && data.itemName.size() <= 120
+        && data.category is string && data.category.size() >= 2 && data.category.size() <= 60
+        && data.description is string && data.description.size() >= 10 && data.description.size() <= 1200
+        && data.location is string && data.location.size() >= 2 && data.location.size() <= 120
+        && data.campusZone in ['main-library', 'science-hall', 'student-union', 'engineering-lab', 'athletics-complex', 'commons-quad']
+        && isValidDateString(data.dateOccurred)
+        && (!('approxTime' in data) || (data.approxTime is string && data.approxTime.size() <= 40))
+        && data.status in ['open', 'matched', 'claimed', 'returned', 'archived']
+        && data.hasPhoto is bool
+        && (!('photoUrl' in data) || (data.photoUrl is string && data.photoUrl.size() <= 500))
+        && (!('visualSignature' in data) || (data.visualSignature is string && data.visualSignature.size() <= 256))
+        && isValidId(data.reporterId)
+        && data.reporterName is string && data.reporterName.size() >= 1 && data.reporterName.size() <= 100
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPrivateDetail(data, itemId) {
+      return data.keys().hasAll(['itemId', 'reporterId', 'identifyingCharacteristics', 'createdAt'])
+        && data.keys().hasOnly(['itemId', 'reporterId', 'identifyingCharacteristics', 'createdAt'])
+        && data.itemId == itemId
+        && isValidId(data.reporterId)
+        && data.identifyingCharacteristics is string && data.identifyingCharacteristics.size() >= 1 && data.identifyingCharacteristics.size() <= 800
+        && data.createdAt is timestamp;
+    }
+
+    function isValidClaim(data) {
+      return data.keys().hasAll([
+          'itemId', 'itemName', 'claimantId', 'claimantName', 'claimantEmail',
+          'verificationAnswer', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'itemId', 'matchedItemId', 'itemName', 'claimantId', 'claimantName', 'claimantEmail',
+          'verificationAnswer', 'uniqueMarks', 'matchScore', 'status', 'adminNotes', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.itemId)
+        && (!('matchedItemId' in data) || (data.matchedItemId is string && data.matchedItemId.size() <= 128))
+        && data.itemName is string && data.itemName.size() >= 1 && data.itemName.size() <= 120
+        && isValidId(data.claimantId)
+        && data.claimantName is string && data.claimantName.size() >= 1 && data.claimantName.size() <= 100
+        && data.claimantEmail is string && data.claimantEmail.size() >= 3 && data.claimantEmail.size() <= 160
+        && data.verificationAnswer is string && data.verificationAnswer.size() >= 5 && data.verificationAnswer.size() <= 800
+        && (!('uniqueMarks' in data) || (data.uniqueMarks is string && data.uniqueMarks.size() <= 500))
+        && (!('matchScore' in data) || (data.matchScore is number && data.matchScore >= 0 && data.matchScore <= 100))
+        && data.status in ['pending', 'approved', 'rejected', 'handed_over']
+        && (!('adminNotes' in data) || (data.adminNotes is string && data.adminNotes.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['userId', 'title', 'message', 'kind', 'read', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'title', 'message', 'kind', 'relatedItemId', 'read', 'createdAt'])
+        && isValidId(data.userId)
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 120
+        && data.message is string && data.message.size() >= 2 && data.message.size() <= 500
+        && data.kind in ['match', 'claim', 'approval', 'returned']
+        && (!('relatedItemId' in data) || (data.relatedItemId is string && data.relatedItemId.size() <= 128))
+        && data.read is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'active', 'createdAt'])
+        && data.keys().hasOnly(['name', 'description', 'active', 'createdAt'])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 60
+        && (!('description' in data) || (data.description is string && data.description.size() <= 200))
+        && data.active is bool
+        && data.createdAt is timestamp;
+    }
+
+    function isValidMatchingConfig(data) {
+      return data.keys().hasAll([
+          'descriptionWeight', 'nameWeight', 'categoryWeight', 'locationWeight',
+          'dateWeight', 'highThreshold', 'possibleThreshold', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'descriptionWeight', 'nameWeight', 'categoryWeight', 'locationWeight',
+          'dateWeight', 'highThreshold', 'possibleThreshold', 'updatedBy', 'updatedAt'
+        ])
+        && data.descriptionWeight is number && data.descriptionWeight >= 0 && data.descriptionWeight <= 100
+        && data.nameWeight is number && data.nameWeight >= 0 && data.nameWeight <= 100
+        && data.categoryWeight is number && data.categoryWeight >= 0 && data.categoryWeight <= 100
+        && data.locationWeight is number && data.locationWeight >= 0 && data.locationWeight <= 100
+        && data.dateWeight is number && data.dateWeight >= 0 && data.dateWeight <= 100
+        && data.highThreshold is number && data.highThreshold >= 40 && data.highThreshold <= 95
+        && data.possibleThreshold is number && data.possibleThreshold >= 15 && data.possibleThreshold < data.highThreshold
+        && (!('updatedBy' in data) || (data.updatedBy is string && data.updatedBy.size() <= 128))
+        && data.updatedAt is timestamp;
+    }
+
+    // 4. Collection Security Rules
+
+    // Users (PII strictly isolated to owner or admin)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().email == request.auth.token.email
+        && incoming().role in ['student', 'faculty']
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().email == existing().email
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (isOwner(userId) && incoming().role == existing().role && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'studentId', 'department', 'updatedAt']))
+          || isAdmin()
+        );
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Admins
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && (isOwner(adminId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create: if isAdmin() && isValidId(adminId) && isValidAdminRecord(incoming()) && incoming().grantedAt == request.time;
+      allow update: if isAdmin() && isValidId(adminId) && isValidAdminRecord(incoming()) && incoming().grantedAt == existing().grantedAt;
+      allow delete: if isAdmin() && isValidId(adminId);
+    }
+
+    // Campus Lost & Found Items (Publicly searchable catalog, no private verification clues)
+    match /items/{itemId} {
+      allow get: if isValidId(itemId) && isSignedIn() && existing().status in ['open', 'matched', 'claimed', 'returned', 'archived'];
+      allow list: if isSignedIn() && resource.data.status in ['open', 'matched', 'claimed', 'returned'];
+      allow create: if isVerifiedUser()
+        && isValidId(itemId)
+        && isValidCampusItem(incoming())
+        && incoming().reporterId == request.auth.uid
+        && incoming().status == 'open'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(itemId)
+        && isValidCampusItem(incoming())
+        && incoming().reporterId == existing().reporterId
+        && incoming().type == existing().type
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            existing().reporterId == request.auth.uid
+            && existing().status != 'returned'
+            && existing().status != 'archived'
+            && incoming().status == existing().status
+            && incoming().diff(existing()).affectedKeys().hasOnly(['itemName', 'category', 'description', 'location', 'campusZone', 'dateOccurred', 'approxTime', 'hasPhoto', 'photoUrl', 'visualSignature', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(itemId) && (isAdmin() || (isVerifiedUser() && existing().reporterId == request.auth.uid && existing().status == 'open'));
+
+      // Private Identifying Characteristics Subcollection (Master Gate + Atomicity Guarantee + PII Isolation)
+      match /privateDetails/{detailId} {
+        allow get: if isValidId(itemId) && isValidId(detailId) && isVerifiedUser() && (
+          isAdmin()
+          || (exists(/databases/$(database)/documents/items/$(itemId)) && get(/databases/$(database)/documents/items/$(itemId)).data.reporterId == request.auth.uid)
+        );
+        allow list: if false;
+        allow create: if isVerifiedUser()
+          && isValidId(itemId)
+          && isValidId(detailId)
+          && isValidPrivateDetail(incoming(), itemId)
+          && incoming().reporterId == request.auth.uid
+          && incoming().createdAt == request.time
+          && existsAfter(/databases/$(database)/documents/items/$(itemId))
+          && getAfter(/databases/$(database)/documents/items/$(itemId)).data.reporterId == request.auth.uid;
+        allow update: if isVerifiedUser()
+          && isValidId(itemId)
+          && isValidId(detailId)
+          && isValidPrivateDetail(incoming(), itemId)
+          && incoming().reporterId == existing().reporterId
+          && incoming().createdAt == existing().createdAt
+          && (
+            isAdmin()
+            || (
+              existing().reporterId == request.auth.uid
+              && exists(/databases/$(database)/documents/items/$(itemId))
+              && get(/databases/$(database)/documents/items/$(itemId)).data.reporterId == request.auth.uid
+              && incoming().diff(existing()).affectedKeys().hasOnly(['identifyingCharacteristics'])
+            )
+          );
+        allow delete: if isValidId(itemId) && isValidId(detailId) && isAdmin();
+      }
+    }
+
+    // Ownership Claims (Private verification answers restricted to claimant and admins)
+    match /claims/{claimId} {
+      allow get: if isValidId(claimId) && isVerifiedUser() && (existing().claimantId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && (resource.data.claimantId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(claimId)
+        && isValidClaim(incoming())
+        && incoming().claimantId == request.auth.uid
+        && incoming().claimantEmail == request.auth.token.email
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && exists(/databases/$(database)/documents/items/$(incoming().itemId));
+      allow update: if isVerifiedUser()
+        && isValidId(claimId)
+        && isValidClaim(incoming())
+        && incoming().claimantId == existing().claimantId
+        && incoming().claimantEmail == existing().claimantEmail
+        && incoming().itemId == existing().itemId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            existing().claimantId == request.auth.uid
+            && existing().status == 'pending'
+            && incoming().status == 'pending'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['verificationAnswer', 'uniqueMarks', 'updatedAt'])
+          )
+        );
+      allow delete: if isValidId(claimId) && isAdmin();
+    }
+
+    // Notifications (Strictly user-scoped)
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isVerifiedUser() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isVerifiedUser() && (resource.data.userId == request.auth.uid || isBootstrappedAdmin());
+      allow create: if isVerifiedUser()
+        && isValidId(notificationId)
+        && isValidNotification(incoming())
+        && incoming().createdAt == request.time
+        && (incoming().userId == request.auth.uid || isAdmin());
+      allow update: if isVerifiedUser()
+        && isValidId(notificationId)
+        && isValidNotification(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && (
+          isAdmin()
+          || (existing().userId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['read']))
+        );
+      allow delete: if isValidId(notificationId) && (isAdmin() || (isVerifiedUser() && existing().userId == request.auth.uid));
+    }
+
+    // Categories (Managed by Admins)
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId) && isSignedIn();
+      allow list: if isSignedIn() && resource.data.active in [true, false];
+      allow create: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming()) && incoming().createdAt == request.time;
+      allow update: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming()) && incoming().createdAt == existing().createdAt;
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    // Matching Settings (Managed by Admins)
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && isSignedIn();
+      allow list: if false;
+      allow create: if isAdmin() && isValidId(settingId) && isValidMatchingConfig(incoming()) && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(settingId) && isValidMatchingConfig(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // Connection test doc
+    match /test/connection {
+      allow get: if isSignedIn();
+    }
+  }
+}
